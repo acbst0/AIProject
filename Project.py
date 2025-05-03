@@ -3,14 +3,213 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from matplotlib.colors import LinearSegmentedColormap
+import tkinter as tk
+from tkinter import ttk, filedialog
+from PIL import Image, ImageTk
 
 # --- AYARLAR ---
 CONFIDENCE_THRESHOLD = 0.5  # Nesne tespiti güven eşiği
 NMS_THRESHOLD = 0.4  # Non-maximum suppression eşiği
 HEATMAP_RESOLUTION = 100  # Isı haritası çözünürlüğü
 
+# Video seçme fonksiyonu
+def select_video():
+    videos_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "videos")
+    
+    # videos klasörü içindeki videoları listele
+    video_files = [f for f in os.listdir(videos_folder) if f.endswith((".mp4", ".avi", ".mov"))]
+    
+    if not video_files:
+        print("Videolar klasöründe video bulunamadı!")
+        exit()
+    
+    # Seçim için gelişmiş bir tkinter penceresi oluştur
+    root = tk.Tk()
+    root.title("Video Seçimi")
+    root.geometry("800x600")  # Pencere boyutu büyütüldü (600x400 -> 800x600)
+    root.configure(bg="#f0f0f0")
+    
+    # Ekran ortasına yerleştir
+    root.eval('tk::PlaceWindow . center')
+    
+    # Stil tanımla
+    style = ttk.Style()
+    style.theme_use('clam')  # 'clam', 'alt', 'default', 'classic' gibi temalar kullanılabilir
+    
+    # Başlık çerçevesi
+    header_frame = tk.Frame(root, bg="#3498db", padx=10, pady=10)
+    header_frame.pack(fill=tk.X)
+    
+    header_label = tk.Label(
+        header_frame, 
+        text="İşlem Yapılacak Videoyu Seçin", 
+        font=("Arial", 16, "bold"),
+        fg="white",
+        bg="#3498db"
+    )
+    header_label.pack(pady=5)
+    
+    # Ana içerik çerçevesi
+    content_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
+    content_frame.pack(fill=tk.BOTH, expand=True)
+    
+    # Video değişkeni
+    selected_video = tk.StringVar()
+    
+    # Video önizleme çerçevesi - BOYUTU DAHA DA BÜYÜTÜLDÜ
+    preview_frame = tk.Frame(content_frame, bg="#f0f0f0", width=500, height=400)
+    preview_frame.pack(side=tk.RIGHT, padx=10, pady=10)
+    
+    preview_label = tk.Label(
+        preview_frame, 
+        text="Önizleme", 
+        bg="#f0f0f0", 
+        font=("Arial", 14, "bold")
+    )
+    preview_label.pack(pady=(0, 5))
+    
+    # Önizleme için çok daha büyük bir alan
+    thumbnail_label = tk.Label(
+        preview_frame, 
+        bg="#e0e0e0", 
+        width=60,  # Genişlik daha fazla artırıldı
+        height=25  # Yükseklik daha fazla artırıldı
+    )
+    thumbnail_label.pack(pady=5)
+    
+    # Liste çerçevesi
+    list_frame = tk.Frame(content_frame, bg="#f0f0f0")
+    list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
+    list_label = tk.Label(list_frame, text="Mevcut Videolar:", font=("Arial", 12), bg="#f0f0f0")
+    list_label.pack(anchor=tk.W, pady=(0, 5))
+    
+    # Gelişmiş liste kutusu oluştur (Treeview)
+    columns = ("name", "size", "duration")
+    tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=10)
+    
+    # Sütun başlıkları
+    tree.heading("name", text="Video Adı")
+    tree.heading("size", text="Boyut")
+    tree.heading("duration", text="Süre")
+    
+    # Sütun genişlikleri
+    tree.column("name", width=150)
+    tree.column("size", width=100, anchor=tk.CENTER)
+    tree.column("duration", width=100, anchor=tk.CENTER)
+    
+    # Kaydırma çubuğu ekle
+    scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+    tree.configure(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    tree.pack(fill=tk.BOTH, expand=True)
+    
+    # Önizleme oluşturma fonksiyonu
+    def create_thumbnail(video_path):
+        try:
+            cap = cv2.VideoCapture(video_path)
+            ret, frame = cap.read()
+            if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.resize(frame, (480, 360))  # Görüntü boyutu büyük ölçüde artırıldı
+                img = Image.fromarray(frame)
+                img_tk = ImageTk.PhotoImage(image=img)
+                thumbnail_label.config(image=img_tk)
+                thumbnail_label.image = img_tk  # Referansı korumak için
+            cap.release()
+        except Exception as e:
+            print(f"Önizleme oluşturulamadı: {e}")
+    
+    # Video bilgilerini elde et ve listeye ekle
+    for video in video_files:
+        video_path = os.path.join(videos_folder, video)
+        file_size = os.path.getsize(video_path) / (1024 * 1024)  # MB cinsinden
+        
+        # Video süresini almaya çalış
+        try:
+            cap = cv2.VideoCapture(video_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            duration = frame_count / fps if fps > 0 else 0
+            cap.release()
+        except:
+            duration = 0
+        
+        # Listeye ekle
+        tree.insert("", tk.END, values=(video, f"{file_size:.1f} MB", f"{duration:.1f} sn"))
+    
+    # Seçim değiştiğinde önizleme göster
+    def on_tree_select(event):
+        selected_item = tree.selection()
+        if selected_item:
+            video_name = tree.item(selected_item[0])['values'][0]
+            video_path = os.path.join(videos_folder, video_name)
+            create_thumbnail(video_path)
+    
+    tree.bind("<<TreeviewSelect>>", on_tree_select)
+    
+    # Seçim fonksiyonu
+    def on_select():
+        selected_item = tree.selection()
+        if selected_item:
+            video_name = tree.item(selected_item[0])['values'][0]
+            selected_video.set(os.path.join(videos_folder, video_name))
+            root.destroy()
+    
+    # Buton çerçevesi
+    button_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=15)
+    button_frame.pack(fill=tk.X)
+    
+    # Butonlar
+    cancel_button = tk.Button(
+        button_frame, 
+        text="İptal", 
+        command=root.destroy,
+        bg="#e74c3c",
+        fg="white",
+        font=("Arial", 11),
+        width=10,
+        height=1,
+        relief=tk.RAISED,
+        cursor="hand2"
+    )
+    cancel_button.pack(side=tk.LEFT, padx=10)
+    
+    select_button = tk.Button(
+        button_frame, 
+        text="Seç", 
+        command=on_select,
+        bg="#2ecc71",
+        fg="white",
+        font=("Arial", 11, "bold"),
+        width=10,
+        height=1,
+        relief=tk.RAISED,
+        cursor="hand2"
+    )
+    select_button.pack(side=tk.RIGHT, padx=10)
+    
+    # İlk videoyu seç ve önizleme oluştur (varsa)
+    if video_files:
+        tree.selection_set(tree.get_children()[0])
+        video_path = os.path.join(videos_folder, video_files[0])
+        create_thumbnail(video_path)
+    
+    root.mainloop()
+    
+    # Eğer bir seçim yapılmadıysa
+    if not selected_video.get():
+        print("Video seçilmedi!")
+        exit()
+    
+    return selected_video.get()
+
+# Kullanıcıya videoyu seçtir
+selected_video_path = select_video()
+print(f"Seçilen video: {selected_video_path}")
+
 # Video dosyasını aç ve ilk kareyi al
-cap = cv2.VideoCapture('camera.mp4')
+cap = cv2.VideoCapture(selected_video_path)
 ret, frame = cap.read()
 
 # Video özellikleri
@@ -23,100 +222,7 @@ if not ret:
     print("Video açılamadı veya ilk kare alınamadı.")
     exit()
 
-# Noktalar burada toplanacak
-points = []
-
-# Başlangıç görseli
-fig, ax = plt.subplots()
-ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-plt.title("Lütfen sırasıyla 4 nokta seçin:\n(Referans, X, Y, Z)")
-
-# Tıklama fonksiyonu
-def onclick(event):
-    if event.xdata is not None and event.ydata is not None and len(points) < 4:
-        x, y = event.xdata, event.ydata
-        points.append((x, y))
-        ax.plot(x, y, 'ro')  # kırmızı nokta
-        ax.text(x + 5, y, f"{len(points)}", color='yellow', fontsize=12)  # numaralandır
-        plt.draw()
-        if len(points) == 4:
-            plt.close()
-
-# Event bağlama ve gösterme
-cid = fig.canvas.mpl_connect('button_press_event', onclick)
-plt.show()
-
-# Eğer 4 nokta seçilmediyse çık
-if len(points) != 4:
-    print("Yeterli sayıda nokta seçilmedi.")
-    exit()
-
-# Koordinat hesaplama
-origin = points[0]
-x_axis = (origin[0] - points[1][0], origin[1] - points[1][1])
-y_axis = (origin[0] - points[2][0], origin[1] - points[2][1])
-z_axis = (origin[0] - points[3][0], origin[1] - points[3][1])
-
-""" x_axis = (points[1][0] - origin[0], points[1][1] - origin[1])
-y_axis = (points[2][0] - origin[0], points[2][1] - origin[1])
-z_axis = (points[3][0] - origin[0], points[3][1] - origin[1]) """
-
-# kordinatları orijine göre uzatarak fotoğrafın eksenleri ile hizalama
-
-print("\nKoordinat Sistemi:")
-print(f"Origin (0,0,0): {origin}")
-print(f"X Axis (1,0,0): {x_axis}")
-print(f"Y Axis (0,1,0): {y_axis}")
-print(f"Z Axis (0,0,1): {z_axis}")
-
-# --- Eksenleri görselin sınırlarına kadar uzatma fonksiyonu ---
-def extend_axis_to_bounds(origin, direction, image_shape, scale_factor=1000):
-    """
-    origin: (x0, y0) başlangıç noktası
-    direction: (dx, dy) yön vektörü
-    image_shape: (yükseklik, genişlik, kanal)
-    """
-    x0, y0 = origin
-    dx, dy = direction
-    norm = np.sqrt(dx**2 + dy**2)
-    if norm == 0:
-        return origin, origin  # Sabit nokta, vektör yok
-
-    # Birim vektör
-    dx /= norm
-    dy /= norm
-
-    # Uzaklaştırılmış iki nokta
-    pt1 = (x0 - dx * scale_factor, y0 - dy * scale_factor)
-    pt2 = (x0 + dx * scale_factor, y0 + dy * scale_factor)
-
-    return pt1, pt2
-
-# Görselde eksenleri çizme
-fig2, ax2 = plt.subplots()
-ax2.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-plt.title("Eksenlerin Uzatılması")
-
-# X ekseni uzatılması
-pt1, pt2 = extend_axis_to_bounds(origin, x_axis, frame.shape)
-ax2.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], 'r-', label='X Ekseni')
-
-# Y ekseni uzatılması
-pt1_y, pt2_y = extend_axis_to_bounds(origin, y_axis, frame.shape)
-ax2.plot([pt1_y[0], pt2_y[0]], [pt1_y[1], pt2_y[1]], 'g-', label='Y Ekseni')
-
-# Z ekseni uzatılması
-pt1_z, pt2_z = extend_axis_to_bounds(origin, z_axis, frame.shape)
-ax2.plot([pt1_z[0], pt2_z[0]], [pt1_z[1], pt2_z[1]], 'b-', label='Z Ekseni')
-
-# Orijin noktası
-ax2.plot(origin[0], origin[1], 'yo', markersize=8)
-ax2.text(origin[0]+5, origin[1], "Origin", color='yellow', fontsize=10)
-
-ax2.legend()
-plt.show()
-
-# Quadrilateral (dörtgen) seçim kodu devam eder
+# Quadrilateral (dörtgen) seçim kodu
 quadrilaterals = []
 current_quad = []
 
@@ -154,147 +260,6 @@ plt.show()
 print("\nSeçilen Dörtgenler:")
 for i, quad in enumerate(quadrilaterals, start=1):
     print(f"Dörtgen {i}: {quad}")
-
-# --- Koordinat dönüşüm işlemleri ---
-def compute_3d_basis(origin, x_axis, y_axis, z_axis):
-    x_vec = np.array(x_axis)
-    y_vec = np.array(y_axis)
-    z_vec = np.array(z_axis)
-    origin_vec = np.array(origin)
-    
-    # Birim vektörlere dönüştür
-    x_unit = x_vec / np.linalg.norm(x_vec)
-    y_unit = y_vec / np.linalg.norm(y_vec)
-    z_unit = z_vec / np.linalg.norm(z_vec)
-    
-    # Ortogonal bir baz oluştur
-    B = np.vstack([x_unit, y_unit, z_unit]).T
-    return B, origin_vec
-
-def resolve_to_3d(p, B, origin_vec):
-    vec = np.array(p) - origin_vec
-    coords_3d, _, _, _ = np.linalg.lstsq(B, vec, rcond=None)
-    return coords_3d
-
-B, origin_vec = compute_3d_basis(origin, x_axis, y_axis, z_axis)
-
-# --- YENİ DÜZGÜN PERSPEKTİF DÖNÜŞÜMÜ ---
-def create_top_view_transformation(quads_2d):
-    """
-    Daha gelişmiş bir perspektif dönüşümü için homografi matrisini hesaplar.
-    Paralel çizgilerin paralel kalmasını sağlayan bir dönüşüm.
-    """
-    # Birinci dörtgeni kullanarak ana yönleri belirle
-    if len(quads_2d) > 0:
-        quad = quads_2d[0]  # İlk dörtgeni referans al
-        
-        # Dörtgenin merkezini bul
-        cx = sum(p[0] for p in quad) / 4
-        cy = sum(p[1] for p in quad) / 4
-        
-        # Merkeze göre vektörleri hesapla
-        vectors = []
-        for p in quad:
-            vec = np.array([p[0] - cx, p[1] - cy])
-            vectors.append(vec)
-        
-        # İki ana yönü bul (birbirine en uzak köşeleri kullan)
-        main_dir1 = None
-        main_dir2 = None
-        max_dist = 0
-        
-        for i in range(4):
-            for j in range(i + 1, 4):
-                dist = np.linalg.norm(vectors[i] - vectors[j])
-                if dist > max_dist:
-                    max_dist = dist
-                    main_dir1 = vectors[i]
-                    main_dir2 = vectors[j]
-        
-        # X ve Y eksenlerini belirle
-        x_dir = main_dir1 / np.linalg.norm(main_dir1)
-        y_dir = main_dir2 / np.linalg.norm(main_dir2)
-        
-        # Ortogonallik kontrolü ve düzeltme
-        dot_product = np.dot(x_dir, y_dir)
-        if abs(dot_product) > 0.1:  # Eksenler yeteri kadar dik değilse
-            # Y eksenini X'e dik olacak şekilde düzelt
-            y_dir = y_dir - dot_product * x_dir
-            y_dir = y_dir / np.linalg.norm(y_dir)
-    else:
-        # Varsayılan eksenler
-        x_dir = np.array([1, 0])
-        y_dir = np.array([0, 1])
-    
-    # Standart dönüşüm matrisi oluştur
-    return x_dir, y_dir
-
-# Dönüşüm için 2D koordinatları hesapla
-bird_eye_quads = []
-for quad in quadrilaterals:
-    bird_eye_quad = []
-    for p in quad:
-        x, y, z = resolve_to_3d(p, B, origin_vec)
-        bird_eye_quad.append((x, y))
-    bird_eye_quads.append(bird_eye_quad)
-
-# Paralel çizgileri koruyacak dönüşüm eksenlerini hesapla
-x_dir, y_dir = create_top_view_transformation(bird_eye_quads)
-
-# Her dörtgeni düzelt - paralel çizgileri koruyarak
-print("\nDörtgenlerin kuş bakışı görünümünü oluşturuyor...")
-corrected_quads = []
-for quad in bird_eye_quads:
-    corrected_quad = []
-    for p in quad:
-        # Koordinatları x_dir ve y_dir eksenlerine göre düzelt
-        x_new = p[0]  # X koordinatı olduğu gibi bırak
-        y_new = p[1]  # Y koordinatı olduğu gibi bırak
-        corrected_quad.append((x_new, y_new))
-    corrected_quads.append(corrected_quad)
-
-# --- TEMEL KUŞBAKIŞI PROJEKSİYON ---
-def create_birds_eye_view(quads, width=800, height=800, margin=50):
-    """
-    Kuş bakışı görünümü oluştur - input olarak 2D koordinattaki dörtgenleri alır
-    """
-    # Tüm noktaları tek bir listede topla
-    all_points = []
-    for quad in quads:
-        # Z koordinatını çıkar (varsa)
-        quad_2d = [(p[0], p[1]) if len(p) == 2 else (p[0], p[1]) for p in quad]
-        all_points.extend(quad_2d)
-    
-    # Min/max değerleri hesapla
-    all_points = np.array(all_points)
-    x_min, y_min = np.min(all_points[:, 0]), np.min(all_points[:, 1])
-    x_max, y_max = np.max(all_points[:, 0]), np.max(all_points[:, 1])
-    
-    # Ölçek hesapla
-    x_scale = (width - 2 * margin) / (x_max - x_min)
-    y_scale = (height - 2 * margin) / (y_max - y_min)
-    scale = min(x_scale, y_scale)
-    
-    # Merkezi hizala
-    x_offset = ((width - ((x_max - x_min) * scale)) / 2) + margin - x_min * scale
-    y_offset = ((height - ((y_max - y_min) * scale)) / 2) + margin - y_min * scale
-    
-    # Dörtgenleri ölçekle ve hizala
-    transformed_quads = []
-    for quad in quads:
-        transformed_quad = []
-        for p in quad:
-            # Z koordinatını çıkar (varsa)
-            x, y = p[0], p[1]
-            x_new = x * scale + x_offset
-            y_new = y * scale + y_offset
-            transformed_quad.append((x_new, y_new))
-        transformed_quads.append(transformed_quad)
-    
-    return transformed_quads, (x_offset, y_offset, scale)
-
-# Düzeltilmiş kuş bakışı koordinatlarını kullan
-transformed_quads, transform_params = create_birds_eye_view(corrected_quads)
 
 # --- KUŞBAKIŞI HARİTA ÇİZİMİ ---
 print("Kuşbakışı haritayı oluşturuyor...")
@@ -341,8 +306,6 @@ ax.invert_yaxis()
 # Kaydet
 plt.savefig("map.jpg", dpi=300, bbox_inches='tight')
 plt.show()
-
-# Orijinal görüntü üzerine izdüşüm gösterimini kaldırıyoruz - kullanıcının isteği üzerine
 
 # ========= YENİ KOD: İNSAN TESPİTİ VE ISI HARİTASI =========
 
@@ -478,7 +441,7 @@ detection_count = 0
 processed_frames = 0
 
 # Video dosyasını yeniden aç
-cap = cv2.VideoCapture('camera.mp4')
+cap = cv2.VideoCapture(selected_video_path)
 ret, first_frame = cap.read()
 if not ret:
     print("Video açılamadı")
@@ -505,14 +468,6 @@ while True:
     for person_pos in people:
         # Orijinal piksel koordinatlarını kaydet
         person_positions_original.append(person_pos)
-        
-        # Sadece bilgi amaçlı 3D koordinatları da hesapla
-        try:
-            person_3d = resolve_to_3d(person_pos, B, origin_vec)
-            person_positions_3d.append((person_3d[0], person_3d[1]))
-        except:
-            # Hata olursa sadece devam et, hesaplanamayan koordinatlar atlanır
-            pass
         
         detection_count += 1
     
