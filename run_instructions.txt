@@ -1,0 +1,52 @@
+# Bu dosya, projenin hem Windows, hem MacOS hem de Linux'ta nasıl çalıştırılacağını adım adım açıklar.
+
+AIProject Çalıştırma Rehberi (Windows, MacOS, Linux)
+====================================================
+
+1. Python Kurulumu
+------------------
+- Python 3.8 veya üzeri bir sürüm kurulu olmalıdır.
+- Kontrol etmek için terminale/komut satırına şunu yazın:
+
+  python --version
+  veya
+  python3 --version
+
+- Python yoksa, https://www.python.org/downloads/ adresinden indirip kurun.
+
+2. Gerekli Kütüphanelerin Kurulumu
+----------------------------------
+- Proje klasöründe terminal/komut satırı açın.
+- Aşağıdaki komutu çalıştırarak bağımlılıkları yükleyin:
+
+  pip install -r requirements.txt
+  veya
+  python -m pip install -r requirements.txt
+  veya
+  python3 -m pip install -r requirements.txt
+
+3. Projeyi Çalıştırma
+---------------------
+- Proje ana dizininde aşağıdaki komutu kullanarak programı başlatın:
+
+  python main.py
+  veya
+  python3 main.py
+
+- Eğer birden fazla Python sürümü varsa, python3 kullanmanız gerekebilir.
+
+4. Video Dosyaları
+------------------
+- 'videos' klasörüne analiz etmek istediğiniz .mp4, .avi veya .mov formatında videoları ekleyin.
+
+5. Çıktılar
+-----------
+- Oluşturulan haritalar ve görseller 'maps' klasörüne kaydedilir.
+
+6. Ek Notlar
+------------
+- MacOS ve Linux'ta terminal açmak için genellikle Terminal uygulamasını kullanabilirsiniz.
+- Windows'ta Komut İstemi (cmd) veya PowerShell kullanılabilir.
+- Eğer bir hata alırsanız, hata mesajını ekibe iletin.
+
+İyi çalışmalar!

@@ -3,6 +3,8 @@ import numpy as np
 import os
 import urllib.request
 
+# YOLO veya HOG tabanlı insan tespiti modelini yükler.
+# Önce YOLO modelini yüklemeye çalışır, başarısız olursa HOG modeline geçer.
 def load_detection_model():
     """
     YOLO veya HOG tabanlı insan tespiti modelini yükler
@@ -59,6 +61,8 @@ def load_detection_model():
             print("People detection will not be available.")
             return None, False
 
+# Frame içindeki insanları tespit eden fonksiyon.
+# YOLO veya HOG modeline göre tespit yapar ve kişilerin ayak noktalarını (x, y) olarak döndürür.
 def detect_people(frame, confidence_threshold=0.5, net=None, hog=None):
     """
     Frame içindeki insanları tespit eden fonksiyon
@@ -69,65 +73,63 @@ def detect_people(frame, confidence_threshold=0.5, net=None, hog=None):
     
     try:
         if hog is not None:
-            # Use HOG-based detection
+            # HOG tabanlı insan tespiti yapılır.
+            # detectMultiScale fonksiyonu, görüntüdeki insanları dikdörtgenler (x, y, w, h) olarak döndürür.
+            # weights: Her tespit için güven skoru içerir.
             boxes, weights = hog.detectMultiScale(
                 frame, 
-                winStride=(8, 8),
-                padding=(4, 4),
-                scale=1.05
+                winStride=(8, 8),  # Arama penceresinin kayma adımı (piksel cinsinden)
+                padding=(4, 4),    # Kenar boşluğu (piksel cinsinden)
+                scale=1.05         # Görüntü ölçeklendirme oranı (daha fazla tespit için 1.01-1.1 arası olabilir)
             )
             
             person_centers = []
-            for (x, y, w, h) in boxes:
-                if weights.flatten()[boxes.tolist().index([x, y, w, h])] > confidence_threshold:
-                    # Bottom center point of the box (where feet are)
+            for idx, (x, y, w, h) in enumerate(boxes):
+                # Her tespit edilen dikdörtgen için güven skoru kontrol edilir
+                if weights.flatten()[idx] > confidence_threshold:
+                    # Kişinin ayak ucu koordinatı (x ekseninde ortası, y ekseninde altı) alınır
                     foot_x = x + w // 2
                     foot_y = y + h
                     person_centers.append((foot_x, foot_y))
-            
+            # Tespit edilen kişilerin ayak ucu koordinatları döndürülür
             return person_centers
         elif net is not None:
-            # Use YOLO-based detection
-            # Create blob for YOLO
+            # YOLO tabanlı insan tespiti yapılır.
+            # Görüntüden blob (YOLO için uygun giriş) oluşturulur
             blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
             net.setInput(blob)
             
-            # Forward pass and get outputs
+            # Modelin çıkış katmanları alınır ve ileri yayılım yapılır
             output_layers = net.getUnconnectedOutLayersNames()
             layer_outputs = net.forward(output_layers)
             
-            # Center points of detected people
             person_centers = []
-            
-            # Get foot points by taking bottom middle of boxes
+            # Her tespit edilen obje için skorlar ve sınıf kimliği kontrol edilir
             for output in layer_outputs:
                 for detection in output:
-                    scores = detection[5:]
-                    class_id = np.argmax(scores)
-                    confidence = scores[class_id]
-                    
-                    # Only detect people (class 0 is 'person' in COCO)
+                    scores = detection[5:]  # Sınıf skorları
+                    class_id = np.argmax(scores)  # En yüksek skora sahip sınıf
+                    confidence = scores[class_id]  # O sınıfın güven skoru
+                    # Sadece insan sınıfı (COCO veri setinde class_id=0) ve güven eşiği kontrolü
                     if class_id == 0 and confidence > confidence_threshold:
-                        # Detected box coordinates
+                        # Tespit edilen kutunun merkez koordinatları ve boyutları
                         center_x = int(detection[0] * width)
                         center_y = int(detection[1] * height)
                         w = int(detection[2] * width)
                         h = int(detection[3] * height)
-                        
-                        # Box coordinates
                         x = int(center_x - w / 2)
                         y = int(center_y - h / 2)
-                        
-                        # Bottom center point of the box (where feet are)
+                        # Kişinin ayak ucu koordinatı (alt orta nokta)
                         foot_x = center_x
                         foot_y = y + h
-                        
                         person_centers.append((foot_x, foot_y))
-            
+            # Tespit edilen kişilerin ayak ucu koordinatları döndürülür
             return person_centers
         else:
-            print("No detection model provided.")
+            # Model yüklenemediyse boş liste döndürülür
+            print("Tespit modeli bulunamadı.")
             return []
     except Exception as e:
-        print(f"Error during people detection: {e}")
+        # Hata oluşursa ekrana yazdırılır ve boş liste döndürülür
+        print(f"İnsan tespiti sırasında hata oluştu: {e}")
         return []

@@ -1,0 +1,40 @@
+# Proje işleyişi ve dosya/fonksiyon ilişkileri hakkında genel açıklama
+
+PROJECT OVERVIEW (AIProject)
+============================
+
+Bu proje, bir video dosyasındaki insanları tespit edip, seçilen alanlar üzerinde yoğunluk haritası (ısı haritası) ve çeşitli görselleştirmeler oluşturan bir Python uygulamasıdır.
+
+Ana Adımlar:
+------------
+1. Kullanıcı, arayüzden bir video seçer (video_selector.py).
+2. Videonun ilk karesi üzerinde kullanıcı, analiz edilecek alan(lar)ı dörtgen olarak seçer (quadrilateral_selector.py).
+3. Seçilen alanlar ile temel bir harita oluşturulur (map_generator.py).
+4. İnsan tespiti için YOLO veya HOG tabanlı model yüklenir (people_detector.py).
+5. Video boyunca belirli aralıklarla insan tespiti yapılır ve tespit edilen kişilerin konumları kaydedilir.
+6. Tespit edilen konumlar ile:
+   - Seçili alanları ve insan noktalarını gösteren harita
+   - Yoğunluk (ısı) haritası
+   - Orijinal görüntü üzerinde tespit edilen insan noktaları
+   oluşturulur ve maps/ klasörüne kaydedilir (map_generator.py).
+
+Ana Dosyalar:
+-------------
+- main.py: Tüm iş akışını başlatan ve yöneten ana dosya.
+- video_selector.py: Kullanıcıya video seçtiren arayüz.
+- quadrilateral_selector.py: Kullanıcıya dörtgen alan seçtiren arayüz.
+- people_detector.py: İnsan tespiti için model yükleme ve tespit fonksiyonları.
+- map_generator.py: Harita ve ısı haritası oluşturma fonksiyonları.
+
+Klasörler:
+----------
+- videos/: Video dosyalarının bulunduğu klasör.
+- maps/: Oluşturulan haritaların kaydedildiği klasör.
+
+Kullanım:
+---------
+1. main.py dosyasını çalıştırın.
+2. Video seçin ve alan(lar)ı belirleyin.
+3. Program otomatik olarak insan tespiti yapar ve haritaları oluşturur.
+
+Her dosya ve fonksiyonun başında detaylı açıklamalar ve kod içi yorumlar mevcuttur.
