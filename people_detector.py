@@ -9,57 +9,64 @@ def load_detection_model():
     """
     YOLO veya HOG tabanlı insan tespiti modelini yükler
     """
-    yolo_path = os.path.join('old', 'yolov3.cfg')
+    yolo_path = os.path.join('old', 'yolov3-tiny.cfg')
     coco_names_path = os.path.join('old', 'coco.names')
-    weights_path = os.path.join('old', 'yolov3.weights')
+    weights_path = os.path.join('old', 'yolov3-tiny.weights')
+
+    # Ensure the 'old' directory exists
+    os.makedirs('old', exist_ok=True)
 
     print("Loading YOLO model...")
     try:
+        # Download coco.names if not exists
+        if not os.path.exists(coco_names_path):
+            print("Downloading coco.names...")
+            urllib.request.urlretrieve(
+                'https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names',
+                coco_names_path
+            )
+
+        # Download yolov3-tiny.cfg if not exists
+        if not os.path.exists(yolo_path):
+            print("Downloading yolov3-tiny.cfg...")
+            urllib.request.urlretrieve(
+                'https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg',
+                yolo_path
+            )
+
+        # Download yolov3-tiny.weights if not exists
+        if not os.path.exists(weights_path):
+            print("Downloading yolov3-tiny.weights...")
+            urllib.request.urlretrieve(
+                'https://data.pjreddie.com/files/yolov3-tiny.weights',
+                weights_path
+            )
+
         # Load COCO names
         with open(coco_names_path, 'r') as f:
             classes = [line.strip() for line in f.readlines()]
-        
-        # Download YOLOv3 weights (if not exists)
-        if not os.path.exists(weights_path):
-            print("Downloading YOLOv3 weights...")
-            
-            url = 'https://pjreddie.com/media/files/yolov3.weights'
-            print(f"Downloading: {url}")
-            try:
-                # Download weights file
-                urllib.request.urlretrieve(url, weights_path)
-                print(f"Download completed: {weights_path}")
-            except Exception as e:
-                print(f"Download failed: {e}")
-                weights_path = None
-        
+
         # Create YOLO model and use CPU
-        if os.path.exists(weights_path):
-            print(f"Loading YOLO weights: {weights_path}")
-            net = cv2.dnn.readNetFromDarknet(yolo_path, weights_path)
-            
-            # Use CPU directly, don't try CUDA
-            net.setPreferableBackend(cv2.dnn.DNN_BACKEND_DEFAULT)
-            net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-            print("Using CPU.")
-            return net, False
-        else:
-            raise FileNotFoundError("YOLO weights file not found")
+        net = cv2.dnn.readNetFromDarknet(yolo_path, weights_path)
+        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+        print("YOLO model loaded successfully.")
+        return net, False
+
     except Exception as e:
         print(f"Could not load YOLO model: {e}")
         print("Using an alternative model...")
-        
+
         # Use OpenCV's built-in model for people detection
         try:
-            print("Using HOG-based people detection...")
             hog = cv2.HOGDescriptor()
             hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
             print("HOG model loaded successfully.")
             return hog, True
         except Exception as e:
-            print(f"HOG model could not be loaded: {e}")
-            print("People detection will not be available.")
-            return None, False
+            print(f"Could not load HOG model: {e}")
+            return None, True
 
 # Frame içindeki insanları tespit eden fonksiyon.
 # YOLO veya HOG modeline göre tespit yapar ve kişilerin ayak noktalarını (x, y) olarak döndürür.
