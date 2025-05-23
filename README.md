@@ -1,1 +1,0 @@
-This repository was opened for the term paper of the Image “Applications of Artificial Intelligence in Image Processing” course.
